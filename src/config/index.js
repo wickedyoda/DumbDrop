@@ -13,6 +13,7 @@ const fs = require('fs'); // Get version from package.json
  * UPLOAD_DIR          - Directory for uploads (Docker/production)
  * LOCAL_UPLOAD_DIR    - Directory for uploads (local dev, fallback: './local_uploads')
  * MAX_FILE_SIZE       - Max upload size in MB (default: 1024)
+ * FILE_RETENTION      - File retention period, format: <number>d or <number>h (default: 30d)
  * AUTO_UPLOAD         - Enable auto-upload (true/false, default: false)
  * SHOW_FILE_LIST      - Enable file listing in frontend (true/false, default: false)
  * DUMBDROP_PIN        - Security PIN for uploads (required for protected endpoints)
@@ -35,6 +36,7 @@ const NODE_ENV = process.env.NODE_ENV || 'production';
 const PORT = process.env.PORT || 3000;
 const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
 const DEFAULT_CLIENT_MAX_RETRIES = 5; // Default retry count
+const DEFAULT_FILE_RETENTION = '30d';
 console.log('Loaded ENV:', {
   PORT,
   UPLOAD_DIR: process.env.UPLOAD_DIR,
@@ -47,6 +49,22 @@ const logAndReturn = (key, value, isDefault = false) => {
   logConfig(`${key}: ${value}${isDefault ? ' (default)' : ''}`);
   return value;
 };
+
+function parseFileRetentionToMs(rawValue) {
+  const parsed = String(rawValue).trim().match(/^(\d+)([dh])$/i);
+  if (!parsed) {
+    throw new Error('FILE_RETENTION must be in format <number>d or <number>h (examples: 30d, 12h)');
+  }
+
+  const amount = parseInt(parsed[1], 10);
+  const unit = parsed[2].toLowerCase();
+  if (isNaN(amount) || amount <= 0) {
+    throw new Error('FILE_RETENTION number must be greater than 0');
+  }
+
+  const hourMs = 60 * 60 * 1000;
+  return unit === 'd' ? amount * 24 * hourMs : amount * hourMs;
+}
 
 /**
  * Determine the upload directory based on environment variables.
@@ -157,6 +175,27 @@ const config = {
    * Set via SHOW_FILE_LIST in .env
    */
   showFileList: process.env.SHOW_FILE_LIST === 'true',
+  /**
+   * File retention period in milliseconds.
+   * Set via FILE_RETENTION in .env using <number>d or <number>h (default: 30d)
+   */
+  fileRetentionMs: (() => {
+    const envValue = process.env.FILE_RETENTION;
+    const effectiveValue = envValue === undefined ? DEFAULT_FILE_RETENTION : envValue;
+
+    try {
+      const ms = parseFileRetentionToMs(effectiveValue);
+      logAndReturn('FILE_RETENTION', effectiveValue, envValue === undefined);
+      return ms;
+    } catch (err) {
+      if (envValue !== undefined) {
+        throw err;
+      }
+
+      logConfig(`Invalid default FILE_RETENTION value "${effectiveValue}". Falling back to ${DEFAULT_FILE_RETENTION}.`, 'warning');
+      return parseFileRetentionToMs(DEFAULT_FILE_RETENTION);
+    }
+  })(),
   
   // =====================
   // =====================

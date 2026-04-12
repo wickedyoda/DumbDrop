@@ -1,6 +1,6 @@
 services:
     dumbdrop:
-        image: dumbwareio/dumbdrop:latest
+        image: ghcr.io/dumbwareio/dumbdrop:latest
         # build: .
         container_name: dumbdrop 
         restart: unless-stopped 

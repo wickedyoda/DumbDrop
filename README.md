@@ -25,7 +25,7 @@ No auth (unless you want it now!), no storage, no nothing. Just a simple file up
 
 ```bash
 # Pull and run with one command
-docker run -p 3000:3000 -v ./uploads:/app/uploads dumbwareio/dumbdrop:latest
+docker run -p 3000:3000 -v ./uploads:/app/uploads ghcr.io/dumbwareio/dumbdrop:latest
 ```
 
 1. Go to http://localhost:3000
@@ -39,7 +39,7 @@ Create a `docker-compose.yml` file:
 ```yaml
 services:
   dumbdrop:
-    image: dumbwareio/dumbdrop:latest
+    image: ghcr.io/dumbwareio/dumbdrop:latest
     ports:
       - 3000:3000
     volumes:
@@ -104,6 +104,7 @@ For local development setup, troubleshooting, and advanced usage, see the dedica
 | PORT                                                     | Server port                                                                                                                           | 3000                                                          | No       |
 | BASE_URL                                                 | Base URL for the application                                                                                                          | http://localhost:PORT                                         | No       |
 | MAX_FILE_SIZE                                            | Maximum file size in MB                                                                                                               | 1024                                                          | No       |
+| FILE_RETENTION                                           | File retention window before auto-delete; format: `<number>d` or `<number>h`                                                         | 30d                                                           | No       |
 | DUMBDROP_PIN                                             | PIN protection (4-10 digits)                                                                                                          | None                                                          | No       |
 | DUMBDROP_TITLE                                           | Site title displayed in header                                                                                                        | DumbDrop                                                      | No       |
 | APPRISE_URL                                              | Apprise URL for notifications                                                                                                         | None                                                          | No       |
@@ -120,6 +121,7 @@ For local development setup, troubleshooting, and advanced usage, see the dedica
 | TRUSTED_PROXY_IPS                                        | Comma-separated list of trusted proxy IPs (optional, requires TRUST_PROXY=true)                                                       | None                                                          | No       |
 
 - **UPLOAD_DIR** is used in Docker/production. If not set, LOCAL_UPLOAD_DIR is used for local development. If neither is set, the default is `./local_uploads`.
+- **FILE_RETENTION** supports days or hours using suffix format like `30d` or `12h`.
 - **Docker Note:** The Dockerfile now only creates the `uploads` directory inside the container. The host's `./local_uploads` is mounted to `/app/uploads` and should be managed on the host system.
 - **BASE_URL**: If you are deploying DumbDrop under a subpath (e.g., `https://example.com/watchfolder/`), you **must** set `BASE_URL` to the full path including the trailing slash (e.g., `https://example.com/watchfolder/`). All API and asset requests will be prefixed with this value. If you deploy at the root, use `https://example.com/`.
 - **BASE_URL** must end with a trailing slash. The app will fail to start if this is not the case.
