@@ -1,5 +1,7 @@
 # DumbDrop
 
+<!-- markdownlint-disable MD013 MD033 MD060 -->
+
 A stupid simple file upload application that provides a clean, modern interface for dragging and dropping files. Built with Node.js and vanilla JavaScript.
 
 ![DumbDrop](https://github.com/user-attachments/assets/1b909d26-9ead-4dc7-85bc-8bfda0d366c1)
@@ -21,6 +23,8 @@ No auth (unless you want it now!), no storage, no nothing. Just a simple file up
 
 ## Quick Start
 
+## Production Deployment with Docker
+
 ### Option 1: Docker (For Dummies)
 
 ```bash
@@ -28,7 +32,7 @@ No auth (unless you want it now!), no storage, no nothing. Just a simple file up
 docker run -p 3000:3000 -v ./uploads:/app/uploads ghcr.io/dumbwareio/dumbdrop:latest
 ```
 
-1. Go to http://localhost:3000
+1. Go to <http://localhost:3000>
 2. Upload a File - It'll show up in ./uploads
 3. Celebrate on how dumb easy this was
 
@@ -67,7 +71,7 @@ Then run:
 docker compose up -d
 ```
 
-1. Go to http://localhost:3000
+1. Go to <http://localhost:3000>
 2. Upload a File - It'll show up in ./uploads
 3. Rejoice in the glory of your dumb uploads
 
@@ -102,7 +106,7 @@ For local development setup, troubleshooting, and advanced usage, see the dedica
 | Variable                                                 | Description                                                                                                                           | Default                                                       | Required |
 | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- | -------- |
 | PORT                                                     | Server port                                                                                                                           | 3000                                                          | No       |
-| BASE_URL                                                 | Base URL for the application                                                                                                          | http://localhost:PORT                                         | No       |
+| BASE_URL                                                 | Base URL for the application                                                                                                          | <http://localhost:PORT>                                         | No       |
 | MAX_FILE_SIZE                                            | Maximum file size in MB                                                                                                               | 1024                                                          | No       |
 | FILE_RETENTION                                           | File retention window before auto-delete; format: `<number>d` or `<number>h`                                                         | 30d                                                           | No       |
 | DUMBDROP_PIN                                             | PIN protection (4-10 digits)                                                                                                          | None                                                          | No       |
@@ -138,6 +142,7 @@ By default, DumbDrop **does not** trust proxy headers like `X-Forwarded-For`. Th
 ### When to Enable TRUST_PROXY
 
 Only enable `TRUST_PROXY=true` if you are deploying DumbDrop behind a **trusted reverse proxy** such as:
+
 - Nginx
 - Apache
 - Caddy
@@ -163,6 +168,7 @@ TRUSTED_PROXY_IPS=172.17.0.1,10.0.0.1
 ```
 
 **Common proxy IPs:**
+
 - Docker default bridge: `172.17.0.1`
 - Docker Compose networks: Check with `docker network inspect <network_name>`
 - Nginx/Apache on same host: `127.0.0.1` or `::1`
@@ -171,6 +177,7 @@ TRUSTED_PROXY_IPS=172.17.0.1,10.0.0.1
 ### Security Warnings
 
 ⚠️ **DO NOT enable `TRUST_PROXY` if:**
+
 - DumbDrop is directly accessible from the internet
 - You are unsure whether you have a reverse proxy
 - You cannot verify the proxy IP addresses
@@ -180,18 +187,21 @@ TRUSTED_PROXY_IPS=172.17.0.1,10.0.0.1
 ### Examples for Common Setups
 
 **Nginx Reverse Proxy:**
+
 ```env
 TRUST_PROXY=true
 TRUSTED_PROXY_IPS=172.17.0.1
 ```
 
 **Cloudflare:**
+
 ```env
 TRUST_PROXY=true
 # List Cloudflare IPs or use their published IP ranges
 ```
 
 **Direct Access (No Proxy):**
+
 ```env
 # TRUST_PROXY=false (default - no need to set)
 ```
@@ -214,6 +224,7 @@ ALLOWED_IFRAME_ORIGINS=https://organizr.example.com,https://myportal.com
 - ~~If not set, the app will only allow itself to be embedded in an iframe on the same origin (default security).~~
 - ~~If set, the app will allow embedding in iframes on the specified origins and itself.~~
 - ~~**Security Note:** Only add trusted origins. Allowing arbitrary origins can expose your app to clickjacking and other attacks.~~
+
 </details>
 
 <details>
@@ -228,7 +239,8 @@ ALLOWED_ORIGINS=https://organizr.example.com,https://myportal.com,http://interna
 - If you would like to restrict CORS to your BASE_URL, you can set it like this: `ALLOWED_ORIGINS=http://localhost:3000`
 - If you would like to allow multiple origins, you can set it like this: `ALLOWED_ORIGINS=http://internalip:port,https://subdomain.domain.tld`
   - This will automatically include your BASE_URL in the list of allowed origins.
-  </details>
+
+</details>
 
 <details>
 <summary>File Extension Filtering</summary>
@@ -281,7 +293,7 @@ The notification message supports the following placeholders:
 Example message template:
 
 ```env
-APPRISE_MESSAGE: New file uploaded {filename} ({size}), Storage used {storage}
+APPRISE_MESSAGE=New file uploaded {filename} ({size}), Storage used {storage}
 ```
 
 Size formatting examples:
@@ -297,11 +309,12 @@ Both {size} and {storage} use the same formatting rules based on APPRISE_SIZE_UN
 - Support for all Apprise notification services
 - Customizable notification messages with filename templating
 - Optional - disabled if no APPRISE_URL is set
+
 </details>
 
 ## Security
 
-### Features
+### Security Controls
 
 - Variable-length PIN support (4-10 digits)
 - Constant-time PIN comparison
@@ -360,6 +373,10 @@ See [Local Development (Recommended Quick Start)](LOCAL_DEVELOPMENT.md) for loca
 ---
 
 Made with ❤️ by [DumbWare.io](https://dumbware.io)
+
+## License
+
+ISC
 
 ## Future Features
 
