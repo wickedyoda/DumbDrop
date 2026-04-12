@@ -10,6 +10,7 @@ const fs = require('fs'); // Get version from package.json
  * PORT                - Port for the server (default: 3000)
  * NODE_ENV            - Node environment (default: 'development')
  * BASE_URL            - Base URL for the app (default: http://localhost:${PORT})
+ * PUBLIC_DOMAIN       - Public domain used for generated download links (default: BASE_URL origin)
  * UPLOAD_DIR          - Directory for uploads (Docker/production)
  * LOCAL_UPLOAD_DIR    - Directory for uploads (local dev, fallback: './local_uploads')
  * MAX_FILE_SIZE       - Max upload size in MB (default: 1024)
@@ -35,14 +36,36 @@ const DEFAULT_SITE_TITLE = "WickedYoda's DumbDrop";
 const NODE_ENV = process.env.NODE_ENV || 'production';
 const PORT = process.env.PORT || 3000;
 const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
+const PUBLIC_DOMAIN = process.env.PUBLIC_DOMAIN;
 const DEFAULT_CLIENT_MAX_RETRIES = 5; // Default retry count
 const DEFAULT_FILE_RETENTION = '30d';
+
+function resolvePublicDomain(rawPublicDomain, fallbackBaseUrl) {
+  const candidate = String(rawPublicDomain || '').trim();
+  if (candidate) {
+    const withProtocol = /^https?:\/\//i.test(candidate) ? candidate : `https://${candidate}`;
+    try {
+      return new URL(withProtocol).origin;
+    } catch {
+      logConfig(`PUBLIC_DOMAIN is invalid ("${candidate}"). Falling back to BASE_URL origin.`, 'warning');
+    }
+  }
+
+  try {
+    return new URL(fallbackBaseUrl).origin;
+  } catch {
+    return `http://localhost:${PORT}`;
+  }
+}
+
+const resolvedPublicDomain = resolvePublicDomain(PUBLIC_DOMAIN, BASE_URL);
 console.log('Loaded ENV:', {
   PORT,
   UPLOAD_DIR: process.env.UPLOAD_DIR,
   LOCAL_UPLOAD_DIR: process.env.LOCAL_UPLOAD_DIR,
   NODE_ENV,
   BASE_URL,
+  PUBLIC_DOMAIN: resolvedPublicDomain,
   ALLOWED_ORIGINS: process.env.ALLOWED_ORIGINS || '*',
 });
 const logAndReturn = (key, value, isDefault = false) => {
@@ -144,6 +167,11 @@ const config = {
    * Set via BASE_URL in .env
    */
   baseUrl: BASE_URL,
+  /**
+   * Public domain used for generated download links (default: BASE_URL origin)
+   * Set via PUBLIC_DOMAIN in .env
+   */
+  publicDomain: resolvedPublicDomain,
   
   // =====================
   // =====================

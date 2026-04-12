@@ -26,7 +26,22 @@ const folderMappings = new Map();
 const batchActivity = new Map();
 
 const BATCH_TIMEOUT = 30 * 60 * 1000; // 30 minutes for batch/folderMapping cleanup
-const FAILED_UPLOAD_RETENTION_MS = 2 * 60 * 1000; // Keep failed partial uploads for 2 minutes
+const DEFAULT_FAILED_UPLOAD_RETENTION_MINUTES = 60;
+const failedUploadRetentionMinutes = (() => {
+  const rawValue = process.env.FAILED_UPLOAD_RETENTION_MINUTES;
+  if (rawValue === undefined) return DEFAULT_FAILED_UPLOAD_RETENTION_MINUTES;
+
+  const parsed = parseInt(rawValue, 10);
+  if (isNaN(parsed) || parsed <= 0) {
+    logger.warn(
+      `Invalid FAILED_UPLOAD_RETENTION_MINUTES value: "${rawValue}". Using default ${DEFAULT_FAILED_UPLOAD_RETENTION_MINUTES} minutes.`
+    );
+    return DEFAULT_FAILED_UPLOAD_RETENTION_MINUTES;
+  }
+
+  return parsed;
+})();
+const FAILED_UPLOAD_RETENTION_MS = failedUploadRetentionMinutes * 60 * 1000; // Keep failed partial uploads before cleanup
 function encodeFilePathForUrl(filePath) {
   return filePath.split('/').map(part => encodeURIComponent(part)).join('/');
 }
@@ -34,13 +49,8 @@ function encodeFilePathForUrl(filePath) {
 function getDownloadUrl(req, storedFilePath) {
   const relativePath = path.relative(config.uploadDir, storedFilePath).split(path.sep).join('/');
   const encodedPath = encodeFilePathForUrl(relativePath);
-  let baseOrigin;
-  try {
-    baseOrigin = new URL(config.baseUrl).origin;
-  } catch {
-    baseOrigin = `${req.protocol}://${req.get('host')}`;
-  }
-  return `${baseOrigin}/api/files/download/${encodedPath}`;
+  const baseOrigin = config.publicDomain || `${req.protocol}://${req.get('host')}`;
+  return `${baseOrigin}/${encodedPath}`;
 }
 
 function getUploadedFilePayload(req, storedFilePath, uploadedAt = Date.now()) {
