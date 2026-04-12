@@ -108,7 +108,7 @@ describe('File Management API Tests', () => {
       const listedFile = response.data.items.find(item => item.type === 'file');
       if (listedFile) {
         assert.ok(typeof listedFile.downloadUrl === 'string');
-        assert.ok(listedFile.downloadUrl.includes('/api/files/download/'));
+        assert.ok(listedFile.downloadUrl.endsWith('/test-file.txt'));
       }
     });
   });
@@ -126,7 +126,7 @@ describe('File Management API Tests', () => {
       assert.strictEqual(response.data.filename, 'test-file.txt');
       assert.ok(response.data.size >= 0);
       assert.ok(typeof response.data.downloadUrl === 'string');
-      assert.ok(response.data.downloadUrl.includes('/api/files/download/'));
+      assert.ok(response.data.downloadUrl.endsWith('/test-file.txt'));
     });
     
     it('should return 403 for non-existent file rejected by path validation', async () => {
@@ -185,6 +185,20 @@ describe('File Management API Tests', () => {
       });
       
       assert.strictEqual(response.status, 403);
+    });
+  });
+
+  describe('GET /:filename short download links', () => {
+    it('should download existing file from short link path', async () => {
+      const response = await makeRequest({
+        host: 'localhost',
+        port: server.address().port,
+        path: '/test-file.txt',
+        method: 'GET',
+      });
+
+      assert.strictEqual(response.status, 200);
+      assert.ok(response.headers['content-disposition']);
     });
   });
   

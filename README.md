@@ -98,7 +98,7 @@ For local development setup, troubleshooting, and advanced usage, see the dedica
 - 🛡️ Built-in security features
 - 💾 Configurable file size limits
 - 🎯 File extension filtering
-- 🧹 Failed upload partial cleanup (2-minute retention before cleanup)
+- 🧹 Failed upload partial cleanup (default 1-hour retention, configurable)
 - 📋 Optional file listing with download/delete/rename functionality
 - ⚠️ Visible legal warning banner and terms/disclaimer links
 
@@ -110,6 +110,7 @@ For local development setup, troubleshooting, and advanced usage, see the dedica
 | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- | -------- |
 | PORT                                                     | Server port                                                                                                                           | 3000                                                          | No       |
 | BASE_URL                                                 | Base URL for the application                                                                                                          | <http://localhost:PORT>                                         | No       |
+| PUBLIC_DOMAIN                                            | Public domain used when generating direct file download links                                                                         | BASE_URL origin                                                | No       |
 | MAX_FILE_SIZE                                            | Maximum file size in MB                                                                                                               | 1024                                                          | No       |
 | FILE_RETENTION                                           | File retention window before auto-delete; format: `<number>d` or `<number>h`                                                         | 30d                                                           | No       |
 | DUMBDROP_PIN                                             | PIN protection (4-10 digits)                                                                                                          | None                                                          | No       |
@@ -130,6 +131,7 @@ For local development setup, troubleshooting, and advanced usage, see the dedica
 | TRUSTED_PROXY_IPS                                        | Comma-separated list of trusted proxy IPs (optional, requires TRUST_PROXY=true)                                                       | None                                                          | No       |
 | DISABLE_BATCH_CLEANUP                                    | Disable batch-session cleanup scheduler (testing/internal)                                                                            | false                                                         | No       |
 | DISABLE_SECURITY_CLEANUP                                 | Disable security cleanup scheduler (testing/internal)                                                                                 | false                                                         | No       |
+| FAILED_UPLOAD_RETENTION_MINUTES                          | Minutes to retain failed upload `.partial` files before cleanup                                                                        | 60                                                            | No       |
 | DISABLE_FAILED_UPLOAD_CLEANUP                            | Disable failed-upload partial cleanup scheduler (testing/internal)                                                                    | false                                                         | No       |
 
 - **UPLOAD_DIR** is used in Docker/production. If not set, LOCAL_UPLOAD_DIR is used for local development. If neither is set, the default is `./local_uploads`.
@@ -137,7 +139,9 @@ For local development setup, troubleshooting, and advanced usage, see the dedica
 - **Docker Note:** The Dockerfile now only creates the `uploads` directory inside the container. The host's `./local_uploads` is mounted to `/app/uploads` and should be managed on the host system.
 - **BASE_URL**: If you are deploying DumbDrop under a subpath (e.g., `https://example.com/watchfolder/`), you **must** set `BASE_URL` to the full path including the trailing slash (e.g., `https://example.com/watchfolder/`). All API and asset requests will be prefixed with this value. If you deploy at the root, use `https://example.com/`.
 - **BASE_URL** must end with a trailing slash. The app will fail to start if this is not the case.
-- Generated download links use the origin from **BASE_URL** so links stay on your intended HTTPS domain.
+- **PUBLIC_DOMAIN** controls generated direct download links. Set this when users access DumbDrop through a public hostname/reverse proxy so links never use internal/localhost values.
+- Generated download links use short root-level format: `https://your-domain.tld/filename.ext` (or `https://your-domain.tld/folder/filename.ext`).
+- Link generation uses **PUBLIC_DOMAIN** (or falls back to the origin from **BASE_URL** when `PUBLIC_DOMAIN` is not set).
 - Direct download URLs are publicly accessible by design. Keep the legal warning visible and avoid uploading sensitive files.
 
 See `.env.example` for a template and more details.

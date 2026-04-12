@@ -164,7 +164,7 @@ describe('Upload API Tests', () => {
       assert.ok(response.data.uploadId);
       assert.strictEqual(response.data.completed, true);
       assert.ok(response.data.file);
-      assert.ok(response.data.file.downloadUrl.includes('/api/files/download/'));
+      assert.ok(response.data.file.downloadUrl.endsWith('/empty.txt'));
     });
   });
   
@@ -234,7 +234,7 @@ describe('Upload API Tests', () => {
       assert.strictEqual(chunkResponse.data.completed, true);
       assert.ok(chunkResponse.data.file);
       assert.ok(typeof chunkResponse.data.file.downloadUrl === 'string');
-      assert.ok(chunkResponse.data.file.downloadUrl.includes('/api/files/download/'));
+      assert.ok(chunkResponse.data.file.downloadUrl.endsWith('/complete-test.txt'));
     });
     
     it('should reject chunks for invalid uploadId', async () => {
