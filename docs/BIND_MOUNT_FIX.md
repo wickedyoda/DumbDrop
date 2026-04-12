@@ -137,7 +137,7 @@ npm test -- test/path-validation.test.js
 ```yaml
 services:
   dumbdrop:
-    image: ghcr.io/dumbwareio/dumbdrop:latest
+    image: ghcr.io/wickedyoda/dumbdrop:latest
     ports:
       - 3000:3000
     volumes:
@@ -151,7 +151,7 @@ services:
 ```yaml
 services:
   dumbdrop:
-    image: ghcr.io/dumbwareio/dumbdrop:latest
+    image: ghcr.io/wickedyoda/dumbdrop:latest
     ports:
       - 3000:3000
     volumes:

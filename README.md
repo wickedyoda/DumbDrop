@@ -29,7 +29,7 @@ No auth (unless you want it now!), no storage, no nothing. Just a simple file up
 
 ```bash
 # Pull and run with one command
-docker run -p 3000:3000 -v ./uploads:/app/uploads ghcr.io/dumbwareio/dumbdrop:latest
+docker run -p 3000:3000 -v ./uploads:/app/uploads ghcr.io/wickedyoda/dumbdrop:latest
 ```
 
 1. Go to <http://localhost:3000>
@@ -43,7 +43,7 @@ Create a `docker-compose.yml` file:
 ```yaml
 services:
   dumbdrop:
-    image: ghcr.io/dumbwareio/dumbdrop:latest
+    image: ghcr.io/wickedyoda/dumbdrop:latest
     ports:
       - 3000:3000
     volumes:
@@ -381,4 +381,4 @@ ISC
 ## Future Features
 
 - Camera Upload for Mobile
-  > Got an idea? [Open an issue](https://github.com/dumbwareio/dumbdrop/issues) or [submit a PR](https://github.com/dumbwareio/dumbdrop/pulls)
+  > Got an idea? [Open an issue](https://github.com/wickedyoda/DumbDrop/issues) or [submit a PR](https://github.com/wickedyoda/DumbDrop/pulls)
