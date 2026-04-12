@@ -34,7 +34,13 @@ function encodeFilePathForUrl(filePath) {
 function getDownloadUrl(req, storedFilePath) {
   const relativePath = path.relative(config.uploadDir, storedFilePath).split(path.sep).join('/');
   const encodedPath = encodeFilePathForUrl(relativePath);
-  return `${req.protocol}://${req.get('host')}/api/files/download/${encodedPath}`;
+  let baseOrigin;
+  try {
+    baseOrigin = new URL(config.baseUrl).origin;
+  } catch {
+    baseOrigin = `${req.protocol}://${req.get('host')}`;
+  }
+  return `${baseOrigin}/api/files/download/${encodedPath}`;
 }
 
 function getUploadedFilePayload(req, storedFilePath, uploadedAt = Date.now()) {
