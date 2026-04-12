@@ -26,6 +26,7 @@ const folderMappings = new Map();
 const batchActivity = new Map();
 
 const BATCH_TIMEOUT = 30 * 60 * 1000; // 30 minutes for batch/folderMapping cleanup
+const FAILED_UPLOAD_RETENTION_MS = 2 * 60 * 1000; // Keep failed partial uploads for 2 minutes
 function encodeFilePathForUrl(filePath) {
   return filePath.split('/').map(part => encodeURIComponent(part)).join('/');
 }
@@ -140,6 +141,73 @@ function stopBatchCleanup() {
 }
 if (!process.env.DISABLE_BATCH_CLEANUP) {
   startBatchCleanup();
+}
+
+let failedUploadCleanupInterval;
+async function cleanupFailedUploads(referenceTime = Date.now()) {
+  let metadataFiles;
+  try {
+    metadataFiles = await fs.readdir(METADATA_DIR);
+  } catch (err) {
+    if (err.code !== 'ENOENT') {
+      logger.error(`Failed to list metadata directory for failed upload cleanup: ${err.message}`);
+    }
+    return;
+  }
+
+  let cleanedCount = 0;
+  for (const file of metadataFiles) {
+    if (!file.endsWith('.meta')) continue;
+
+    const uploadId = file.slice(0, -5);
+    try {
+      const metadata = await readUploadMetadata(uploadId);
+      if (!metadata || !metadata.failedAt) continue;
+
+      if ((referenceTime - metadata.failedAt) < FAILED_UPLOAD_RETENTION_MS) continue;
+
+      if (metadata.partialFilePath && isPathWithinUploadDir(metadata.partialFilePath, config.uploadDir, false)) {
+        try {
+          await fs.unlink(metadata.partialFilePath);
+        } catch (unlinkErr) {
+          if (unlinkErr.code !== 'ENOENT') {
+            logger.warn(`Failed to remove partial file for failed upload ${uploadId}: ${unlinkErr.message}`);
+          }
+        }
+      }
+
+      await deleteUploadMetadata(uploadId);
+      cleanedCount++;
+    } catch (err) {
+      logger.warn(`Failed cleaning up failed upload metadata ${uploadId}: ${err.message}`);
+    }
+  }
+
+  if (cleanedCount > 0) {
+    logger.info(`Cleaned up ${cleanedCount} failed uploads after retention period`);
+  }
+}
+
+function startFailedUploadCleanup() {
+  if (failedUploadCleanupInterval) clearInterval(failedUploadCleanupInterval);
+  failedUploadCleanupInterval = setInterval(() => {
+    cleanupFailedUploads().catch((err) => {
+      logger.error(`Failed upload cleanup interval error: ${err.message}`);
+    });
+  }, 60 * 1000);
+  failedUploadCleanupInterval.unref();
+  return failedUploadCleanupInterval;
+}
+
+function stopFailedUploadCleanup() {
+  if (failedUploadCleanupInterval) {
+    clearInterval(failedUploadCleanupInterval);
+    failedUploadCleanupInterval = null;
+  }
+}
+
+if (!process.env.DISABLE_FAILED_UPLOAD_CLEANUP) {
+  startFailedUploadCleanup();
 }
 
 // --- Routes ---
@@ -378,6 +446,11 @@ router.post('/chunk/:uploadId', express.raw({
       batchActivity.set(metadata.batchId, Date.now());
     }
 
+    if (metadata.failedAt) {
+      // Upload resumed after failure; clear failed marker so cleanup won't remove active data.
+      delete metadata.failedAt;
+    }
+
     // --- Sanity Checks & Idempotency ---
     if (metadata.bytesReceived >= metadata.fileSize) {
       logger.warn(`Received chunk for already completed upload ${uploadId} (${metadata.originalFilename}). Finalizing again if needed.`);
@@ -521,10 +594,43 @@ router.post('/cancel/:uploadId', async (req, res) => {
   }
 });
 
+// Mark upload as failed and keep partial data for temporary recovery.
+router.post('/fail/:uploadId', async (req, res) => {
+  // DEMO MODE CHECK
+  if (isDemoMode()) {
+    logger.info(`[DEMO] Upload marked failed: ${req.params.uploadId}`);
+    return res.json({ message: 'Upload marked failed (Demo)' });
+  }
+
+  const { uploadId } = req.params;
+
+  try {
+    const metadata = await readUploadMetadata(uploadId);
+    if (!metadata) {
+      return res.json({ message: 'Upload session not found or already completed' });
+    }
+
+    if (!metadata.failedAt) {
+      metadata.failedAt = Date.now();
+      await writeUploadMetadata(uploadId, metadata);
+      logger.info(`Marked upload as failed for delayed cleanup: ${uploadId}`);
+    }
+
+    return res.json({ message: 'Upload marked as failed' });
+  } catch (err) {
+    logger.error(`Failed to mark upload as failed ${uploadId}: ${err.message}`);
+    return res.status(500).json({ error: 'Failed to mark upload as failed' });
+  }
+});
+
 module.exports = {
   router,
   startBatchCleanup,
   stopBatchCleanup,
+  startFailedUploadCleanup,
+  stopFailedUploadCleanup,
+  cleanupFailedUploads,
+  FAILED_UPLOAD_RETENTION_MS,
   // Export for testing if required
   readUploadMetadata,
   writeUploadMetadata,

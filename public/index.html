@@ -29,6 +29,13 @@
             </svg>
         </button>
         <h1>{{SITE_TITLE}}</h1>
+        <div class="legal-warning legal-warning-top" role="note" aria-label="Important upload warning">
+            <p>
+                <strong>Short Warning:</strong> Files uploaded to this service may be publicly accessible. Do not upload sensitive data.
+                Files are temporary, not backed up, and may be deleted at any time. Use at your own risk.
+                <a href="https://wickedyoda.com/terms-of-use-disclaimer-and-limitation-of-liability/" target="_blank" rel="noopener noreferrer">Full terms and disclaimer</a>
+            </p>
+        </div>
         <div class="upload-container" id="dropZone">
             <div class="upload-content">
                 <svg xmlns="http://www.w3.org/2000/svg" width="50" height="50" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -64,6 +71,13 @@
             <div id="uploadedFilesContent" class="uploaded-files-content">
                 <div class="loading-message">Loading files...</div>
             </div>
+        </div>
+
+        <div class="legal-warning legal-warning-bottom" role="contentinfo" aria-label="Terms and disclaimer">
+            <p>
+                Terms, disclaimer, and limitation of liability:
+                <a href="https://wickedyoda.com/terms-of-use-disclaimer-and-limitation-of-liability/" target="_blank" rel="noopener noreferrer">wickedyoda.com/terms-of-use-disclaimer-and-limitation-of-liability</a>
+            </p>
         </div>
     </div>
 
@@ -173,7 +187,7 @@
                         this.progressElement.infoSpan.textContent = `Error: ${error.message}`;
                         this.progressElement.infoSpan.style.color = 'var(--danger-color)';
                     }
-                    await this.cancelUploadOnServer();
+                    await this.markUploadFailedOnServer();
                     return { success: false, cancelled: false, file: null };
                 }
             }
@@ -224,6 +238,24 @@
                 this.uploadId = data.uploadId;
                 if (data.file && data.completed) {
                     this.completedFile = data.file;
+                }
+            }
+
+            async markUploadFailedOnServer() {
+                if (!this.uploadId) return;
+
+                const failApiUrlPath = `/api/upload/fail/${this.uploadId}`;
+                const failApiUrl = failApiUrlPath.startsWith('/') ? failApiUrlPath.substring(1) : failApiUrlPath;
+
+                try {
+                    await fetch(failApiUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        }
+                    });
+                } catch (error) {
+                    console.warn(`Unable to notify server about failed upload ${this.uploadId}:`, error);
                 }
             }
 
