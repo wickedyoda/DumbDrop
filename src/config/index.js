@@ -17,7 +17,7 @@ const fs = require('fs'); // Get version from package.json
  * AUTO_UPLOAD         - Enable auto-upload (true/false, default: false)
  * SHOW_FILE_LIST      - Enable file listing in frontend (true/false, default: false)
  * DUMBDROP_PIN        - Security PIN for uploads (required for protected endpoints)
- * DUMBDROP_TITLE      - Site title (default: 'DumbDrop')
+ * DUMBDROP_TITLE      - Site title (default: "WickedYoda's DumbDrop")
  * APPRISE_URL         - Apprise notification URL (optional)
  * APPRISE_MESSAGE     - Notification message template (default provided)
  * APPRISE_SIZE_UNIT   - Size unit for notifications (optional)
@@ -31,7 +31,7 @@ const logConfig = (message, level = 'info') => {
 };
 
 // Default configurations
-const DEFAULT_SITE_TITLE = 'DumbDrop';
+const DEFAULT_SITE_TITLE = "WickedYoda's DumbDrop";
 const NODE_ENV = process.env.NODE_ENV || 'production';
 const PORT = process.env.PORT || 3000;
 const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
@@ -226,7 +226,7 @@ const config = {
   // UI settings
   // =====================
   /**
-   * Site title (default: 'DumbDrop')
+  * Site title (default: "WickedYoda's DumbDrop")
    * Set via DUMBDROP_TITLE in .env
    */
   siteTitle: process.env.DUMBDROP_TITLE || DEFAULT_SITE_TITLE,
