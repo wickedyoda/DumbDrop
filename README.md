@@ -1,4 +1,4 @@
-# DumbDrop
+# WickedYoda's DumbDrop
 
 <!-- markdownlint-disable MD013 MD033 MD060 -->
 
@@ -6,7 +6,7 @@ A stupid simple file upload application that provides a clean, modern interface 
 
 ![DumbDrop](https://github.com/user-attachments/assets/1b909d26-9ead-4dc7-85bc-8bfda0d366c1)
 
-No auth (unless you want it now!), no storage, no nothing. Just a simple file uploader to drop dumb files into a dumb folder.
+Simple uploads, optional PIN protection, configurable retention, and direct HTTPS download links.
 
 ## Table of Contents
 
@@ -53,7 +53,7 @@ services:
       # Explicitly set upload directory inside the container
       UPLOAD_DIR: /app/uploads
       # The title shown in the web interface
-      DUMBDROP_TITLE: DumbDrop
+      DUMBDROP_TITLE: WickedYoda's DumbDrop
       # Maximum file size in MB
       MAX_FILE_SIZE: 1024
       # Optional PIN protection (leave empty to disable)
@@ -91,13 +91,16 @@ For local development setup, troubleshooting, and advanced usage, see the dedica
 - 📦 Docker support with easy configuration
 - 📂 Directory upload support (maintains structure)
 - 🔒 Optional PIN protection
+- 🔗 Shareable direct download links
 - 📱 Mobile-friendly interface
 - 🔔 Configurable notifications via Apprise
 - ⚡ Zero dependencies on client-side
 - 🛡️ Built-in security features
 - 💾 Configurable file size limits
 - 🎯 File extension filtering
-- 📋 Optional file listing with download/delete functionality
+- 🧹 Failed upload partial cleanup (2-minute retention before cleanup)
+- 📋 Optional file listing with download/delete/rename functionality
+- ⚠️ Visible legal warning banner and terms/disclaimer links
 
 ## Configuration
 
@@ -110,12 +113,14 @@ For local development setup, troubleshooting, and advanced usage, see the dedica
 | MAX_FILE_SIZE                                            | Maximum file size in MB                                                                                                               | 1024                                                          | No       |
 | FILE_RETENTION                                           | File retention window before auto-delete; format: `<number>d` or `<number>h`                                                         | 30d                                                           | No       |
 | DUMBDROP_PIN                                             | PIN protection (4-10 digits)                                                                                                          | None                                                          | No       |
-| DUMBDROP_TITLE                                           | Site title displayed in header                                                                                                        | DumbDrop                                                      | No       |
+| DUMBDROP_TITLE                                           | Site title displayed in header                                                                                                        | WickedYoda's DumbDrop                                         | No       |
 | APPRISE_URL                                              | Apprise URL for notifications                                                                                                         | None                                                          | No       |
 | APPRISE_MESSAGE                                          | Notification message template                                                                                                         | New file uploaded {filename} ({size}), Storage used {storage} | No       |
 | APPRISE_SIZE_UNIT                                        | Size unit for notifications (B, KB, MB, GB, TB, or Auto)                                                                              | Auto                                                          | No       |
 | AUTO_UPLOAD                                              | Enable automatic upload on file selection                                                                                             | false                                                         | No       |
 | SHOW_FILE_LIST                                           | Enable file listing with download and delete functionality                                                                            | false                                                         | No       |
+| CLIENT_MAX_RETRIES                                       | Maximum client retries for chunk upload failures                                                                                      | 5                                                             | No       |
+| DEMO_MODE                                                | Disable persistence for uploads (demo/testing mode)                                                                                   | false                                                         | No       |
 | ALLOWED_EXTENSIONS                                       | Comma-separated list of allowed file extensions                                                                                       | None                                                          | No       |
 | ALLOWED_IFRAME_ORIGINS (deprecated: see ALLOWED_ORIGINS) | Comma-separated list of origins allowed to embed the app in an iframe                                                                 | None                                                          | No       |
 | ALLOWED_ORIGINS                                          | You can restrict CORS to your BASE_URL or a comma-separated list of specified origins, which will automatically include your base_url | '\*'                                                          | No       |
@@ -123,12 +128,17 @@ For local development setup, troubleshooting, and advanced usage, see the dedica
 | LOCAL_UPLOAD_DIR                                         | Directory for uploads (local dev, fallback: './local_uploads')                                                                        | ./local_uploads                                               | No       |
 | TRUST_PROXY                                              | Trust proxy headers (X-Forwarded-For) - only enable if behind a reverse proxy                                                         | false                                                         | No       |
 | TRUSTED_PROXY_IPS                                        | Comma-separated list of trusted proxy IPs (optional, requires TRUST_PROXY=true)                                                       | None                                                          | No       |
+| DISABLE_BATCH_CLEANUP                                    | Disable batch-session cleanup scheduler (testing/internal)                                                                            | false                                                         | No       |
+| DISABLE_SECURITY_CLEANUP                                 | Disable security cleanup scheduler (testing/internal)                                                                                 | false                                                         | No       |
+| DISABLE_FAILED_UPLOAD_CLEANUP                            | Disable failed-upload partial cleanup scheduler (testing/internal)                                                                    | false                                                         | No       |
 
 - **UPLOAD_DIR** is used in Docker/production. If not set, LOCAL_UPLOAD_DIR is used for local development. If neither is set, the default is `./local_uploads`.
 - **FILE_RETENTION** supports days or hours using suffix format like `30d` or `12h`.
 - **Docker Note:** The Dockerfile now only creates the `uploads` directory inside the container. The host's `./local_uploads` is mounted to `/app/uploads` and should be managed on the host system.
 - **BASE_URL**: If you are deploying DumbDrop under a subpath (e.g., `https://example.com/watchfolder/`), you **must** set `BASE_URL` to the full path including the trailing slash (e.g., `https://example.com/watchfolder/`). All API and asset requests will be prefixed with this value. If you deploy at the root, use `https://example.com/`.
 - **BASE_URL** must end with a trailing slash. The app will fail to start if this is not the case.
+- Generated download links use the origin from **BASE_URL** so links stay on your intended HTTPS domain.
+- Direct download URLs are publicly accessible by design. Keep the legal warning visible and avoid uploading sensitive files.
 
 See `.env.example` for a template and more details.
 
