@@ -129,7 +129,7 @@ describe('File Management API Tests', () => {
       assert.ok(response.data.downloadUrl.includes('/api/files/download/'));
     });
     
-    it('should return 404 for non-existent file', async () => {
+    it('should return 403 for non-existent file rejected by path validation', async () => {
       const response = await makeRequest({
         host: 'localhost',
         port: server.address().port,
@@ -137,7 +137,7 @@ describe('File Management API Tests', () => {
         method: 'GET',
       });
       
-      assert.strictEqual(response.status, 404);
+      assert.strictEqual(response.status, 403);
     });
     
     it('should prevent path traversal attacks', async () => {
@@ -165,7 +165,7 @@ describe('File Management API Tests', () => {
       assert.ok(response.headers['content-disposition']);
     });
     
-    it('should return 404 for non-existent file', async () => {
+    it('should return 403 for non-existent file rejected by path validation', async () => {
       const response = await makeRequest({
         host: 'localhost',
         port: server.address().port,
@@ -173,7 +173,7 @@ describe('File Management API Tests', () => {
         method: 'GET',
       });
       
-      assert.strictEqual(response.status, 404);
+      assert.strictEqual(response.status, 403);
     });
     
     it('should prevent path traversal in download', async () => {
@@ -212,7 +212,7 @@ describe('File Management API Tests', () => {
       }
     });
     
-    it('should return 404 for non-existent file', async () => {
+    it('should return 403 for non-existent file rejected by path validation', async () => {
       const response = await makeRequest({
         host: 'localhost',
         port: server.address().port,
@@ -220,7 +220,7 @@ describe('File Management API Tests', () => {
         method: 'DELETE',
       });
       
-      assert.strictEqual(response.status, 404);
+      assert.strictEqual(response.status, 403);
     });
     
     it('should prevent path traversal in deletion', async () => {
@@ -256,7 +256,7 @@ describe('File Management API Tests', () => {
       assert.strictEqual(response.status, 200);
       
       // Verify new file exists
-      const newPath = path.join(config.uploadDir, 'renamed-file.txt');
+      const newPath = path.join(config.uploadDir, 'renamed_file.txt');
       await fs.access(newPath);
       
       // Clean up

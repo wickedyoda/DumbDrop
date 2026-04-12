@@ -287,7 +287,7 @@ describe('Upload API Tests', () => {
   
   describe('Batch uploads', () => {
     it('should handle multiple files with same batch ID', async () => {
-      const batchId = `batch-${crypto.randomBytes(4).toString('hex')}`;
+      const batchId = `${Date.now()}-${crypto.randomBytes(5).toString('hex').slice(0, 9)}`;
       
       // Initialize first file
       const file1Response = await makeRequest({
