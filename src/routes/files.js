@@ -18,7 +18,13 @@ function encodePathForUrl(filePath) {
 
 function buildDownloadUrl(req, relativePath) {
   const encodedPath = encodePathForUrl(relativePath);
-  return `${req.protocol}://${req.get('host')}/api/files/download/${encodedPath}`;
+  let baseOrigin;
+  try {
+    baseOrigin = new URL(config.baseUrl).origin;
+  } catch {
+    baseOrigin = `${req.protocol}://${req.get('host')}`;
+  }
+  return `${baseOrigin}/api/files/download/${encodedPath}`;
 }
 
 /**
