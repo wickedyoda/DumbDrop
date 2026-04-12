@@ -87,11 +87,17 @@ const authRoutes = require('./routes/auth');
 
 // Use routes with appropriate middleware
 // Apply strict rate limiting to PIN verification, but more permissive to status checks
+const filesPinMiddleware = requirePin(config.pin);
 app.use('/api/auth/pin-required', pinStatusLimiter);
 app.use('/api/auth/logout', pinStatusLimiter);
 app.use('/api/auth', pinVerifyLimiter, authRoutes);
 app.use('/api/upload', requirePin(config.pin), initUploadLimiter, uploadRouter);
-app.use('/api/files', requirePin(config.pin), downloadLimiter, fileRoutes);
+app.use('/api/files', (req, res, next) => {
+  if (req.path.startsWith('/download/')) {
+    return next();
+  }
+  return filesPinMiddleware(req, res, next);
+}, downloadLimiter, fileRoutes);
 
 // Root route
 app.get('/', (req, res) => {
