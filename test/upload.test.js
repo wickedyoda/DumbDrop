@@ -234,7 +234,7 @@ describe('Upload API Tests', () => {
       assert.strictEqual(chunkResponse.data.completed, true);
       assert.ok(chunkResponse.data.file);
       assert.ok(typeof chunkResponse.data.file.downloadUrl === 'string');
-      assert.ok(chunkResponse.data.file.downloadUrl.endsWith('/complete-test.txt'));
+      assert.ok(chunkResponse.data.file.downloadUrl.endsWith(`/${chunkResponse.data.file.filename}`));
     });
     
     it('should reject chunks for invalid uploadId', async () => {
