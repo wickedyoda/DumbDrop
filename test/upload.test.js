@@ -161,6 +161,9 @@ describe('Upload API Tests', () => {
       
       assert.strictEqual(response.status, 200);
       assert.ok(response.data.uploadId);
+      assert.strictEqual(response.data.completed, true);
+      assert.ok(response.data.file);
+      assert.ok(response.data.file.downloadUrl.includes('/api/files/download/'));
     });
   });
   
@@ -196,6 +199,41 @@ describe('Upload API Tests', () => {
       
       assert.strictEqual(chunkResponse.status, 200);
       assert.ok(chunkResponse.data.bytesReceived > 0);
+    });
+
+    it('should return download link when upload completes', async () => {
+      const content = Buffer.from('hello');
+
+      const initResponse = await makeRequest({
+        host: 'localhost',
+        port: server.address().port,
+        path: '/api/upload/init',
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }, {
+        filename: 'complete-test.txt',
+        fileSize: content.length,
+      });
+
+      const { uploadId } = initResponse.data;
+
+      const chunkResponse = await makeRequest({
+        host: 'localhost',
+        port: server.address().port,
+        path: `/api/upload/chunk/${uploadId}`,
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/octet-stream',
+        },
+      }, content);
+
+      assert.strictEqual(chunkResponse.status, 200);
+      assert.strictEqual(chunkResponse.data.completed, true);
+      assert.ok(chunkResponse.data.file);
+      assert.ok(typeof chunkResponse.data.file.downloadUrl === 'string');
+      assert.ok(chunkResponse.data.file.downloadUrl.includes('/api/files/download/'));
     });
     
     it('should reject chunks for invalid uploadId', async () => {

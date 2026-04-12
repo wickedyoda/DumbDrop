@@ -26,6 +26,29 @@ const folderMappings = new Map();
 const batchActivity = new Map();
 
 const BATCH_TIMEOUT = 30 * 60 * 1000; // 30 minutes for batch/folderMapping cleanup
+function encodeFilePathForUrl(filePath) {
+  return filePath.split('/').map(part => encodeURIComponent(part)).join('/');
+}
+
+function getDownloadUrl(req, storedFilePath) {
+  const relativePath = path.relative(config.uploadDir, storedFilePath).split(path.sep).join('/');
+  const encodedPath = encodeFilePathForUrl(relativePath);
+  return `${req.protocol}://${req.get('host')}/api/files/download/${encodedPath}`;
+}
+
+function getUploadedFilePayload(req, storedFilePath, uploadedAt = Date.now()) {
+  const relativePath = path.relative(config.uploadDir, storedFilePath).split(path.sep).join('/');
+  const uploadedAtIso = new Date(uploadedAt).toISOString();
+  const expiresAtIso = new Date(uploadedAt + config.fileRetentionMs).toISOString();
+
+  return {
+    path: relativePath,
+    filename: path.basename(relativePath),
+    downloadUrl: getDownloadUrl(req, storedFilePath),
+    uploadedAt: uploadedAtIso,
+    expiresAt: expiresAtIso
+  };
+}
 
 // --- Helper Functions for Metadata ---
 
@@ -280,10 +303,12 @@ router.post('/init', async (req, res) => {
     logger.info(`Initialized persistent upload: ${uploadId} for ${safeFilename} -> ${finalFilePath}`);
 
     // --- Handle Zero-Byte Files --- // (Important: Handle *after* metadata potentially exists)
+    let completedFile = null;
     if (size === 0) {
       try {
         await fs.writeFile(finalFilePath, ''); // Create the empty file
         logger.success(`Completed zero-byte file upload: ${metadata.originalFilename} as ${finalFilePath}`);
+        completedFile = getUploadedFilePayload(req, finalFilePath);
         await deleteUploadMetadata(uploadId); // Clean up metadata since it's done
         sendNotification(metadata.originalFilename, 0, config);
       } catch (writeErr) {
@@ -293,7 +318,11 @@ router.post('/init', async (req, res) => {
       }
     }
 
-    res.json({ uploadId });
+    if (completedFile) {
+      return res.json({ uploadId, completed: true, file: completedFile });
+    }
+
+    res.json({ uploadId, completed: false });
 
   } catch (err) {
     logger.error(`Upload initialization failed: ${err.message} ${err.stack}`);
@@ -414,11 +443,13 @@ router.post('/chunk/:uploadId', express.raw({
     await writeUploadMetadata(uploadId, metadata);
 
     // --- Check for Completion --- // Now happens after metadata update
+    let completedFile = null;
     if (metadata.bytesReceived >= metadata.fileSize) {
       logger.info(`Upload ${uploadId} (${metadata.originalFilename}) completed ${metadata.bytesReceived} bytes.`);
       try {
         await fs.rename(metadata.partialFilePath, metadata.filePath);
         logger.success(`Upload completed and finalized: ${metadata.originalFilename} as ${metadata.filePath} (${metadata.fileSize} bytes)`);
+        completedFile = getUploadedFilePayload(req, metadata.filePath, metadata.createdAt);
         await deleteUploadMetadata(uploadId); // Clean up metadata file AFTER successful rename
         sendNotification(metadata.originalFilename, metadata.fileSize, config);
       } catch (renameErr) {
@@ -434,7 +465,12 @@ router.post('/chunk/:uploadId', express.raw({
       }
     }
 
-    res.json({ bytesReceived: metadata.bytesReceived, progress });
+    res.json({
+      bytesReceived: metadata.bytesReceived,
+      progress,
+      completed: metadata.bytesReceived >= metadata.fileSize,
+      file: completedFile
+    });
 
   } catch (err) {
     // Ensure file handle is closed on error
