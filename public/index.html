@@ -119,6 +119,15 @@
         const SHOW_FILE_LIST_STR = '{{SHOW_FILE_LIST}}';
         const SHOW_FILE_LIST = ['true', '1', 'yes'].includes(SHOW_FILE_LIST_STR.toLowerCase());
 
+        const TERMS_LINK = '{{TERMS_LINK}}';
+        const termsNotice = document.getElementById('termsNotice');
+        const termsLink = document.getElementById('termsLink');
+        if (!TERMS_LINK || TERMS_LINK === '{{TERMS_LINK}}') {
+            termsNotice.style.display = 'none';
+        } else {
+            termsLink.href = TERMS_LINK;
+        }
+
         // Utility function to generate a unique batch ID
         function generateBatchId() {
             return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;

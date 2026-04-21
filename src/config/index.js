@@ -258,6 +258,11 @@ const config = {
    * Set via DUMBDROP_TITLE in .env
    */
   siteTitle: process.env.DUMBDROP_TITLE || DEFAULT_SITE_TITLE,
+  /**
+   * Terms and Conditions URL (optional)
+   * Set via TERMS_LINK in .env
+   */
+  termsLink: getTermsLink(),
   
   // =====================
   // =====================

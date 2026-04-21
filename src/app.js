@@ -188,6 +188,7 @@ app.get('/', (req, res) => {
   
   let html = fs.readFileSync(path.join(__dirname, '../public', 'index.html'), 'utf8');
   html = html.replace(/{{SITE_TITLE}}/g, config.siteTitle);
+  html = html.replace(/{{TERMS_LINK}}/g, config.termsLink || '');
   html = html.replace('{{AUTO_UPLOAD}}', config.autoUpload.toString());
   html = html.replace('{{MAX_RETRIES}}', config.clientMaxRetries.toString());
   html = html.replace('{{SHOW_FILE_LIST}}', config.showFileList.toString());
@@ -204,6 +205,7 @@ app.get('/login.html', (req, res) => {
   
   let html = fs.readFileSync(path.join(__dirname, '../public', 'login.html'), 'utf8');
   html = html.replace(/{{SITE_TITLE}}/g, config.siteTitle);
+  html = html.replace(/{{TERMS_LINK}}/g, config.termsLink || '');
   html = injectDemoBanner(html);
   res.send(html);
 });
@@ -218,9 +220,11 @@ app.use((req, res, next) => {
     const filePath = path.join(__dirname, '../public', req.path);
     let html = fs.readFileSync(filePath, 'utf8');
     html = html.replace(/{{SITE_TITLE}}/g, config.siteTitle);
+    html = html.replace(/{{TERMS_LINK}}/g, config.termsLink || '');
     if (req.path === '/index.html' || req.path === 'index.html') {
       html = html.replace('{{AUTO_UPLOAD}}', config.autoUpload.toString());
       html = html.replace('{{MAX_RETRIES}}', config.clientMaxRetries.toString());
+      html = html.replace('{{SHOW_FILE_LIST}}', config.showFileList.toString());
     }
     // Ensure baseUrl has a trailing slash
     const baseUrlWithSlash = config.baseUrl.endsWith('/') ? config.baseUrl : config.baseUrl + '/';
