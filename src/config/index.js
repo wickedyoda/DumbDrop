@@ -73,6 +73,25 @@ const logAndReturn = (key, value, isDefault = false) => {
   return value;
 };
 
+function getTermsLink() {
+  const rawTermsLink = process.env.TERMS_LINK || process.env.terms_link;
+  if (!rawTermsLink) {
+    return null;
+  }
+
+  try {
+    const parsed = new URL(rawTermsLink);
+    if (!['http:', 'https:'].includes(parsed.protocol)) {
+      logConfig(`Invalid TERMS_LINK protocol: ${parsed.protocol}. Use http or https.`, 'warning');
+      return null;
+    }
+    return rawTermsLink;
+  } catch {
+    logConfig(`Invalid TERMS_LINK URL: ${rawTermsLink}. Disabling terms link.`, 'warning');
+    return null;
+  }
+}
+
 function parseFileRetentionToMs(rawValue) {
   const parsed = String(rawValue).trim().match(/^(\d+)([dh])$/i);
   if (!parsed) {
