@@ -17,6 +17,7 @@ const fs = require('fs'); // Get version from package.json
  * SHOW_FILE_LIST      - Enable file listing in frontend (true/false, default: false)
  * DUMBDROP_PIN        - Security PIN for uploads (required for protected endpoints)
  * DUMBDROP_TITLE      - Site title (default: 'DumbDrop')
+ * TERMS_LINK          - URL to Terms and Conditions page (optional)
  * APPRISE_URL         - Apprise notification URL (optional)
  * APPRISE_MESSAGE     - Notification message template (default provided)
  * APPRISE_SIZE_UNIT   - Size unit for notifications (optional)
@@ -41,12 +42,32 @@ console.log('Loaded ENV:', {
   LOCAL_UPLOAD_DIR: process.env.LOCAL_UPLOAD_DIR,
   NODE_ENV,
   BASE_URL,
+  TERMS_LINK: process.env.TERMS_LINK || process.env.terms_link || null,
   ALLOWED_ORIGINS: process.env.ALLOWED_ORIGINS || '*',
 });
 const logAndReturn = (key, value, isDefault = false) => {
   logConfig(`${key}: ${value}${isDefault ? ' (default)' : ''}`);
   return value;
 };
+
+function getTermsLink() {
+  const rawTermsLink = process.env.TERMS_LINK || process.env.terms_link;
+  if (!rawTermsLink) {
+    return null;
+  }
+
+  try {
+    const parsed = new URL(rawTermsLink);
+    if (!['http:', 'https:'].includes(parsed.protocol)) {
+      logConfig(`Invalid TERMS_LINK protocol: ${parsed.protocol}. Use http or https.`, 'warning');
+      return null;
+    }
+    return rawTermsLink;
+  } catch {
+    logConfig(`Invalid TERMS_LINK URL: ${rawTermsLink}. Disabling terms link.`, 'warning');
+    return null;
+  }
+}
 
 /**
  * Determine the upload directory based on environment variables.
@@ -191,6 +212,11 @@ const config = {
    * Set via DUMBDROP_TITLE in .env
    */
   siteTitle: process.env.DUMBDROP_TITLE || DEFAULT_SITE_TITLE,
+  /**
+   * Terms and Conditions URL (optional)
+   * Set via TERMS_LINK in .env
+   */
+  termsLink: getTermsLink(),
   
   // =====================
   // =====================

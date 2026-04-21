@@ -63,6 +63,11 @@
                 <div class="loading-message">Loading files...</div>
             </div>
         </div>
+
+        <p id="termsNotice" class="legal-links">
+            By using this site, you agree to the
+            <a id="termsLink" href="{{TERMS_LINK}}" target="_blank" rel="noopener noreferrer">Terms and Conditions</a>.
+        </p>
     </div>
 
     <!-- Rename Modal -->
@@ -102,6 +107,15 @@
 
         const SHOW_FILE_LIST_STR = '{{SHOW_FILE_LIST}}';
         const SHOW_FILE_LIST = ['true', '1', 'yes'].includes(SHOW_FILE_LIST_STR.toLowerCase());
+
+        const TERMS_LINK = '{{TERMS_LINK}}';
+        const termsNotice = document.getElementById('termsNotice');
+        const termsLink = document.getElementById('termsLink');
+        if (!TERMS_LINK || TERMS_LINK === '{{TERMS_LINK}}') {
+            termsNotice.style.display = 'none';
+        } else {
+            termsLink.href = TERMS_LINK;
+        }
 
         // Utility function to generate a unique batch ID
         function generateBatchId() {

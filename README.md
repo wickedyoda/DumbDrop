@@ -50,6 +50,8 @@ services:
       UPLOAD_DIR: /app/uploads
       # The title shown in the web interface
       DUMBDROP_TITLE: DumbDrop
+      # Optional Terms and Conditions URL shown on login/upload pages
+      TERMS_LINK: https://example.com/terms
       # Maximum file size in MB
       MAX_FILE_SIZE: 1024
       # Optional PIN protection (leave empty to disable)
@@ -106,6 +108,7 @@ For local development setup, troubleshooting, and advanced usage, see the dedica
 | MAX_FILE_SIZE                                            | Maximum file size in MB                                                                                                               | 1024                                                          | No       |
 | DUMBDROP_PIN                                             | PIN protection (4-10 digits)                                                                                                          | None                                                          | No       |
 | DUMBDROP_TITLE                                           | Site title displayed in header                                                                                                        | DumbDrop                                                      | No       |
+| TERMS_LINK                                               | URL to your Terms and Conditions page (shown on upload/login pages)                                                                   | None                                                          | No       |
 | APPRISE_URL                                              | Apprise URL for notifications                                                                                                         | None                                                          | No       |
 | APPRISE_MESSAGE                                          | Notification message template                                                                                                         | New file uploaded {filename} ({size}), Storage used {storage} | No       |
 | APPRISE_SIZE_UNIT                                        | Size unit for notifications (B, KB, MB, GB, TB, or Auto)                                                                              | Auto                                                          | No       |
@@ -123,6 +126,8 @@ For local development setup, troubleshooting, and advanced usage, see the dedica
 - **Docker Note:** The Dockerfile now only creates the `uploads` directory inside the container. The host's `./local_uploads` is mounted to `/app/uploads` and should be managed on the host system.
 - **BASE_URL**: If you are deploying DumbDrop under a subpath (e.g., `https://example.com/watchfolder/`), you **must** set `BASE_URL` to the full path including the trailing slash (e.g., `https://example.com/watchfolder/`). All API and asset requests will be prefixed with this value. If you deploy at the root, use `https://example.com/`.
 - **BASE_URL** must end with a trailing slash. The app will fail to start if this is not the case.
+- **TERMS_LINK** is optional. If set to a valid `http` or `https` URL, login and upload pages display a Terms and Conditions link. If unset or invalid, the link is hidden.
+- **TERMS_LINK** also supports lowercase `terms_link` for compatibility.
 
 See `.env.example` for a template and more details.
 

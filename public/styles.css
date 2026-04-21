@@ -165,6 +165,22 @@ button:disabled {
     justify-content: center;
 }
 
+.legal-links {
+    margin-top: 20px;
+    font-size: 0.9rem;
+    color: var(--text-color);
+    opacity: 0.8;
+}
+
+.legal-links a {
+    color: var(--highlight-color);
+    text-decoration: none;
+}
+
+.legal-links a:hover {
+    text-decoration: underline;
+}
+
 /* Progress Bar Styles */
 #uploadProgress {
     margin: 20px 0;

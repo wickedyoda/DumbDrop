@@ -21,12 +21,13 @@
    cp .env.example .env
    ```
    - Open `.env` in your editor and review the variables.
-   - At minimum, set:
-     - `PORT=3000`
-     - `LOCAL_UPLOAD_DIR=./local_uploads`
-     - `MAX_FILE_SIZE=1024`
-     - `DUMBDROP_PIN=` (optional, for PIN protection)
-     - `APPRISE_URL=` (optional, for notifications)
+    - At minimum, set:
+       - `PORT=3000`
+       - `LOCAL_UPLOAD_DIR=./local_uploads`
+       - `MAX_FILE_SIZE=1024`
+       - `DUMBDROP_PIN=` (optional, for PIN protection)
+       - `TERMS_LINK=` (optional, add your Terms URL)
+       - `APPRISE_URL=` (optional, for notifications)
 
 3. **Install dependencies**
    ```bash
@@ -112,6 +113,12 @@ If you want to test notifications (e.g., for new uploads):
 **Solution:**  
 - Double-check that `.env` exists and is formatted correctly.
 - Restart the server after making changes.
+
+**Problem:** Terms and Conditions link is not showing  
+**Solution:**
+- Set `TERMS_LINK` to a valid `http://` or `https://` URL in `.env`.
+- If you are using lowercase, `terms_link` is also supported.
+- Restart the server after updating `.env`.
 
 ---
 
