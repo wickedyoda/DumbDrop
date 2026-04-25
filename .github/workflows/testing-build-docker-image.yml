@@ -1,4 +1,4 @@
-name: Verify, Build and Publish Docker Image
+name: Testing, Verify, Build and Publish Docker Image
 
 on:
   push:
