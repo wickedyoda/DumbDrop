@@ -49,6 +49,24 @@ app.use(cookieParser());
 app.use(express.json());
 app.use(helmet(getHelmetConfig()));
 
+// Structured request/response access log for operational visibility.
+app.use((req, res, next) => {
+  const startedAt = Date.now();
+
+  res.on('finish', () => {
+    const durationMs = Date.now() - startedAt;
+    const contentLength = res.getHeader('content-length') || 0;
+    const ip = req.ip || req.socket?.remoteAddress || 'unknown';
+    const userAgent = req.get('user-agent') || '-';
+
+    logger.access(
+      `${req.method} ${req.originalUrl || req.url} status=${res.statusCode} bytes=${contentLength} durationMs=${durationMs} ip=${ip} ua="${userAgent}"`,
+    );
+  });
+
+  next();
+});
+
 // --- AUTHENTICATION MIDDLEWARE FOR ALL PROTECTED ROUTES ---
 app.use((req, res, next) => {
   // List of paths that should be publicly accessible
