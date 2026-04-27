@@ -29,11 +29,11 @@
             </svg>
         </button>
         <h1>{{SITE_TITLE}}</h1>
-        <div class="legal-warning legal-warning-top" role="note" aria-label="Important upload warning">
+        <div id="termsNotice" class="legal-warning legal-warning-top" role="note" aria-label="Important upload warning">
             <p>
                 <strong>Warning:</strong> Files uploaded to this service may be publicly accessible. Do not upload sensitive data.
                 Files are temporary, not backed up, and may be deleted at any time. Use at your own risk.
-                <a href="https://www.wickedyoda.com/privacy-policy-terms-of-use-disclaimer-and-limitation-of-liability/" target="_blank" rel="noopener noreferrer">Full terms and disclaimer</a>
+                <a id="termsLink" target="_blank" rel="noopener noreferrer">Full terms and disclaimer</a>
             </p>
         </div>
         <div class="upload-container" id="dropZone">
@@ -73,12 +73,7 @@
             </div>
         </div>
 
-        <div class="legal-warning legal-warning-bottom" role="contentinfo" aria-label="Terms and disclaimer">
-            <p>
-                Terms, disclaimer, and limitation of liability:
-                <a href="https://www.wickedyoda.com/privacy-policy-terms-of-use-disclaimer-and-limitation-of-liability/" target="_blank" rel="noopener noreferrer">https://www.wickedyoda.com/privacy-policy-terms-of-use-disclaimer-and-limitation-of-liability</a>
-            </p>
-        </div>
+
     </div>
 
     <!-- Rename Modal -->
@@ -122,10 +117,12 @@
         const TERMS_LINK = '{{TERMS_LINK}}';
         const termsNotice = document.getElementById('termsNotice');
         const termsLink = document.getElementById('termsLink');
-        if (!TERMS_LINK || TERMS_LINK === '{{TERMS_LINK}}') {
-            termsNotice.style.display = 'none';
-        } else {
+        // Defensively guard TERMS_LINK injection: only proceed if elements exist and TERMS_LINK is truthy
+        if (termsNotice && termsLink && TERMS_LINK && TERMS_LINK !== '{{TERMS_LINK}}') {
             termsLink.href = TERMS_LINK;
+        } else if (termsNotice) {
+            // Hide the notice if TERMS_LINK is not provided or is the uninjected placeholder
+            termsNotice.style.display = 'none';
         }
 
         // Utility function to generate a unique batch ID
@@ -321,69 +318,75 @@
                         }
                         const timeoutId = setTimeout(() => controller.abort(), 30000); // 30-second timeout per attempt
 
-                        const response = await fetch(chunkApiUrl, {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/octet-stream',
-                                'X-Batch-ID': this.batchId
-                                // Consider adding 'Content-Range': `bytes ${chunkStartPosition}-${chunkStartPosition + chunk.byteLength - 1}/${this.file.size}`
-                                // If the server supports handling potential duplicate chunks via Content-Range
-                            },
-                            body: chunk,
-                            signal: controller.signal // Add abort signal
-                        });
+                        try {
+                            const response = await fetch(chunkApiUrl, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/octet-stream',
+                                    'X-Batch-ID': this.batchId
+                                    // Consider adding 'Content-Range': `bytes ${chunkStartPosition}-${chunkStartPosition + chunk.byteLength - 1}/${this.file.size}`
+                                    // If the server supports handling potential duplicate chunks via Content-Range
+                                },
+                                body: chunk,
+                                signal: controller.signal // Add abort signal
+                            });
 
-                        clearTimeout(timeoutId); // Clear timeout if fetch completes
-                        if (this.abortController) {
-                            this.abortController.signal.removeEventListener('abort', onAbort);
-                        }
+                            if (response.ok) {
+                                const data = await response.json();
+                                if (attempt > 0) {
+                                    console.log(`Chunk upload successful on retry attempt ${attempt} for ${this.file.webkitRelativePath || this.file.name}`);
+                                }
+                                // Update progress based on server response
+                                // this.position is updated by readChunk(), so progress reflects total uploaded
+                                this.updateProgress(data.progress);
+                                if (data.completed && data.file) {
+                                    this.completedFile = data.file;
+                                }
+                                // Success! Exit the retry loop.
+                                this.updateProgressElementInfo('uploading...'); // Reset info message
+                                return;
+                            } else {
+                                // Server responded with an error status (4xx, 5xx)
+                                let errorText = 'Unknown server error';
+                                try {
+                                    errorText = await response.text();
+                                } catch (textError) { /* ignore if reading text fails */ }
 
-                        if (response.ok) {
-                            const data = await response.json();
-                            if (attempt > 0) {
-                                console.log(`Chunk upload successful on retry attempt ${attempt} for ${this.file.webkitRelativePath || this.file.name}`);
+                                // --- Add Special 404 Handling ---
+                                if (response.status === 404 && attempt > 0) {
+                                    console.warn(`Received 404 Not Found on retry attempt ${attempt} for ${this.file.webkitRelativePath || this.file.name}. Assuming upload completed previously.`);
+                                    this.updateProgress(100); // Mark as complete
+                                    return; // Exit retry loop successfully
+                                }
+                                // --- End Special 404 Handling ---
+
+                                lastError = new Error(`Failed to upload chunk: ${response.status} ${response.statusText}. Server response: ${errorText}`);
+                                console.error(`Chunk upload attempt ${attempt} failed: ${lastError.message}`);
+                                this.updateProgressElementInfo(`Attempt ${attempt} failed: ${response.statusText}`, 'var(--danger-color)');
                             }
-                            // Update progress based on server response
-                            // this.position is updated by readChunk(), so progress reflects total uploaded
-                            this.updateProgress(data.progress);
-                            if (data.completed && data.file) {
-                                this.completedFile = data.file;
+                        } catch (error) {
+                            // Network error, fetch failed completely, or timeout
+                            lastError = error;
+                            if (error.name === 'AbortError') {
+                                 if (this.cancelRequested) {
+                                     throw error;
+                                 }
+                                 console.error(`Chunk upload attempt ${attempt} timed out after 30 seconds.`);
+                                 this.updateProgressElementInfo(`Attempt ${attempt} timed out`, 'var(--danger-color)');
+                            } else {
+                                console.error(`Chunk upload attempt ${attempt} failed with network error: ${error.message}`);
+                                 this.updateProgressElementInfo(`Attempt ${attempt} network error`, 'var(--danger-color)');
                             }
-                            // Success! Exit the retry loop.
-                            this.updateProgressElementInfo('uploading...'); // Reset info message
-                            return;
-                        } else {
-                            // Server responded with an error status (4xx, 5xx)
-                            let errorText = 'Unknown server error';
-                            try {
-                                errorText = await response.text();
-                            } catch (textError) { /* ignore if reading text fails */ }
-
-                            // --- Add Special 404 Handling ---
-                            if (response.status === 404 && attempt > 0) {
-                                console.warn(`Received 404 Not Found on retry attempt ${attempt} for ${this.file.webkitRelativePath || this.file.name}. Assuming upload completed previously.`);
-                                this.updateProgress(100); // Mark as complete
-                                return; // Exit retry loop successfully
+                        } finally {
+                            // Ensure cleanup happens on both success and error paths
+                            clearTimeout(timeoutId);
+                            if (this.abortController) {
+                                this.abortController.signal.removeEventListener('abort', onAbort);
                             }
-                            // --- End Special 404 Handling ---
-
-                            lastError = new Error(`Failed to upload chunk: ${response.status} ${response.statusText}. Server response: ${errorText}`);
-                            console.error(`Chunk upload attempt ${attempt} failed: ${lastError.message}`);
-                            this.updateProgressElementInfo(`Attempt ${attempt} failed: ${response.statusText}`, 'var(--danger-color)');
                         }
                     } catch (error) {
-                        // Network error, fetch failed completely, or timeout
-                        lastError = error;
-                        if (error.name === 'AbortError') {
-                             if (this.cancelRequested) {
-                                 throw error;
-                             }
-                             console.error(`Chunk upload attempt ${attempt} timed out after 30 seconds.`);
-                             this.updateProgressElementInfo(`Attempt ${attempt} timed out`, 'var(--danger-color)');
-                        } else {
-                            console.error(`Chunk upload attempt ${attempt} failed with network error: ${error.message}`);
-                             this.updateProgressElementInfo(`Attempt ${attempt} network error`, 'var(--danger-color)');
-                        }
+                        // Outer catch - for cancelRequested or other pre-fetch errors
+                        throw error;
                     }
 
                     // If not the last attempt, wait before retrying
