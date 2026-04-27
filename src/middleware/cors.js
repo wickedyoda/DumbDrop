@@ -12,7 +12,7 @@ function setupOrigins(baseUrl) {
           const allowed = ALLOWED_ORIGINS.split(',').map(origin => origin.trim());
           allowed.forEach(origin => {
               const normalizedOrigin = normalizeOrigin(origin);
-              if (normalizedOrigin !== baseUrl) allowedOrigins.push(normalizedOrigin);
+              if (normalizedOrigin !== normalizedBaseUrl) allowedOrigins.push(normalizedOrigin);
           });
         }
         catch (error) {
@@ -30,8 +30,27 @@ function normalizeOrigin(origin) {
           return normalizedOrigin;
       } catch (error) {
           console.error("Error parsing referer URL:", error);
-          throw new Error("Error parsing referer URL:", error);
+          throw new Error(`Error parsing origin URL: ${origin}`);
       }
+  }
+}
+
+function hasMatchingHost(origin, allowlist) {
+  if (!Array.isArray(allowlist)) {
+    return false;
+  }
+
+  try {
+    const incomingHost = new URL(origin).host;
+    return allowlist.some((allowedOrigin) => {
+      try {
+        return new URL(allowedOrigin).host === incomingHost;
+      } catch {
+        return false;
+      }
+    });
+  } catch {
+    return false;
   }
 }
 
@@ -50,6 +69,12 @@ function validateOrigin(origin) {
         console.log("Allowed request from origin:", origin);
         return true;
       } 
+      // Reverse proxies can alter scheme before Express sees the request.
+      // Accept same-host origins even if protocol differs (http/https mismatch).
+      if (hasMatchingHost(origin, allowedOrigins)) {
+        console.log("Allowed request from matching host:", origin);
+        return true;
+      }
       else {
           console.warn("Blocked request from origin:", origin);
           return false;
@@ -61,7 +86,14 @@ function validateOrigin(origin) {
 }
 
 function originValidationMiddleware(req, res, next) {
-  const origin = req.headers.origin || req.headers.referer || `${req.protocol}://${req.headers.host}`;
+  // Browser navigation and some same-origin requests do not include Origin/Referer.
+  // Allow those requests and rely on authentication/rate limiting for protection.
+  const rawOrigin = req.headers.origin || req.headers.referer;
+  if (!rawOrigin) {
+    return next();
+  }
+
+  const origin = rawOrigin;
   const isOriginValid = validateOrigin(origin);
   if (isOriginValid) {
       next();
