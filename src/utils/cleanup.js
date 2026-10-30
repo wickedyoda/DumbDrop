@@ -241,7 +241,8 @@ const METADATA_CLEANUP_INTERVAL = 15 * 60 * 1000; // e.g., every 15 minutes
 let metadataCleanupTimer;
 let fileRetentionCleanupTimer;
 
-if (!process.env.DISABLE_BATCH_CLEANUP) {
+const _isBatchDisabled = (v) => v && v !== "false" && v !== "no" && v !== "0";
+if (!_isBatchDisabled(process.env.DISABLE_BATCH_CLEANUP)) {
   metadataCleanupTimer = setInterval(cleanupIncompleteMetadataUploads, METADATA_CLEANUP_INTERVAL);
   metadataCleanupTimer.unref(); // Allow process to exit if this is the only timer
 
