@@ -33,6 +33,7 @@ const logConfig = (message, level = 'info') => {
 
 // Default configurations
 const DEFAULT_SITE_TITLE = "WickedYoda's DumbDrop";
+const DEFAULT_UPLOAD_WARNING = 'Warning: Files uploaded to this service may be publicly accessible. Do not upload sensitive data. Files are temporary, not backed up, and may be deleted at any time. Use at your own risk.';
 const NODE_ENV = process.env.NODE_ENV || 'production';
 const PORT = process.env.PORT || 3000;
 const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
@@ -282,6 +283,11 @@ const config = {
    * Set via TERMS_LINK in .env
    */
   termsLink: getTermsLink(),
+  /**
+   * Upload warning text shown above the upload area (optional)
+   * Set via UPLOAD_WARNING in .env
+   */
+  uploadWarning: process.env.UPLOAD_WARNING || DEFAULT_UPLOAD_WARNING,
   
   // =====================
   // =====================
