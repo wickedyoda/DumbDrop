@@ -16,8 +16,8 @@ const { config, validateConfig } = require('./config');
 const logger = require('./utils/logger');
 const { ensureDirectoryExists, isPathWithinUploadDir } = require('./utils/fileUtils');
 const { getHelmetConfig, requirePin } = require('./middleware/security');
-const { safeCompare } = require('./utils/security');
-const { initUploadLimiter, pinVerifyLimiter, pinStatusLimiter, downloadLimiter } = require('./middleware/rateLimiter');
+const { SESSION_COOKIE, isValidSession } = require('./utils/authSessions');
+const { uploadInitLimiter, chunkUploadLimiter, pinVerifyLimiter, pinStatusLimiter, downloadLimiter } = require('./middleware/rateLimiter');
 const { injectDemoBanner, demoMiddleware } = require('./utils/demoMode');
 const { originValidationMiddleware, getCorsOptions } = require('./middleware/cors');
 
@@ -171,7 +171,14 @@ const filesPinMiddleware = requirePin(config.pin);
 app.use('/api/auth/pin-required', pinStatusLimiter);
 app.use('/api/auth/logout', pinStatusLimiter);
 app.use('/api/auth', pinVerifyLimiter, authRoutes);
-app.use('/api/upload', requirePin(config.pin), initUploadLimiter, uploadRouter);
+// Limits are attached per operation so a request header can no longer opt out.
+// Previously initUploadLimiter wrapped the whole /api/upload tree at 30/min and
+// `skip`ped anything bearing an x-batch-id header - i.e. every real batch
+// upload, and therefore also every abusive one.
+app.use('/api/upload', requirePin(config.pin));
+app.use('/api/upload/init', uploadInitLimiter);
+app.use('/api/upload/chunk', chunkUploadLimiter);
+app.use('/api/upload', uploadRouter);
 app.use('/api/files', (req, res, next) => {
   if (req.path.startsWith('/download/')) {
     return next();
@@ -181,8 +188,8 @@ app.use('/api/files', (req, res, next) => {
 
 // Root route
 app.get('/', (req, res) => {
-  // Check if the PIN is configured and the cookie exists
-  if (config.pin && (!req.cookies?.DUMBDROP_PIN || !safeCompare(req.cookies.DUMBDROP_PIN, config.pin))) {
+  // Check if the PIN is configured and a valid session token cookie exists
+  if (config.pin && !isValidSession(req.cookies?.[SESSION_COOKIE])) {
     return res.redirect('/login.html');
   }
   

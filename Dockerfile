@@ -81,12 +81,21 @@ RUN rm -rf /usr/local/lib/node_modules/npm \
 #  advertises setuptools 70.3.0 which trivy reports as an installed HIGH finding
 #  even though no setuptools distribution exists in the image)
 
-# Create upload and logs directories
-RUN mkdir -p uploads /logs
+# Create upload and logs directories and hand them to the unprivileged `node`
+# user (uid 1000 in the node images). Running the service as root bought nothing:
+# it listens on 3000 (>1024) and only touches these two paths plus node_modules.
+#
+# DEPLOYMENT NOTE: bind-mounted host directories must be writable by uid 1000,
+# i.e. `chown -R 1000:1000 <upload_dir> <logs_dir>` on the host before starting
+# this image, otherwise uploads fail with EACCES.
+RUN mkdir -p uploads /logs && chown -R node:node /usr/src/app/uploads /logs /opt/venv
 
 # Copy only necessary source files
-COPY src/ ./src/
-COPY public/ ./public/
+COPY --chown=node:node src/ ./src/
+COPY --chown=node:node public/ ./public/
+
+# Run as the non-root user created by the base image
+USER node
 
 # Expose port
 EXPOSE 3000

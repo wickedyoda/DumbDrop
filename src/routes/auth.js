@@ -11,27 +11,28 @@ const {
   MAX_ATTEMPTS,
   LOCKOUT_DURATION 
 } = require('../utils/security');
-const { getClientIp } = require('../utils/ipExtractor');
-const PORT = process.env.PORT || 3000;
-const NODE_ENV = process.env.NODE_ENV || 'production';
-const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
+const { getClientIp, getSecurityIdentity } = require('../utils/ipExtractor');
+const { buildCookieOptions } = require('../middleware/security');
+const {
+  SESSION_COOKIE,
+  LEGACY_PIN_COOKIE,
+  issueSession,
+  revokeSession,
+} = require('../utils/authSessions');
+
 /**
  * Verify PIN
  */
 router.post('/verify-pin', (req, res) => {
   const { pin } = req.body;
-  const ip = getClientIp(req);
+  // Lockouts and rate buckets must not be launderable through request headers
+  const ip = getSecurityIdentity(req);
   
   try {
     // If no PIN is set in config, always return success
     if (!config.pin) {
-      // res.cookie('DUMBDROP_PIN', '', {
-      //   httpOnly: true,
-      //   secure: req.secure || (BASE_URL.startsWith('https') && NODE_ENV === 'production'),
-      //   sameSite: 'strict',
-      //   path: '/'
-      // });
-      res.clearCookie('DUMBDROP_PIN', { path: '/' });
+      res.clearCookie(LEGACY_PIN_COOKIE, { path: '/' });
+      res.clearCookie(SESSION_COOKIE, { path: '/' });
       return res.json({ success: true, error: null, path: '/' });
     }
 
@@ -63,14 +64,10 @@ router.post('/verify-pin', (req, res) => {
     if (safeCompare(cleanedPin, config.pin)) {
       // Reset attempts on successful login
       resetAttempts(ip);
-      
-      // Set secure cookie with cleaned PIN
-      res.cookie('DUMBDROP_PIN', cleanedPin, {
-        httpOnly: true,
-        secure: req.secure || (BASE_URL.startsWith('https') && NODE_ENV === 'production'),
-        sameSite: 'strict',
-        path: '/'
-      });
+
+      // Hand the browser an opaque session token - never the PIN itself
+      res.cookie(SESSION_COOKIE, issueSession(), buildCookieOptions(req));
+      res.clearCookie(LEGACY_PIN_COOKIE, { path: '/' });
 
       logger.info(`Successful PIN verification from IP: ${ip}`);
       res.json({ success: true, error: null });
@@ -113,7 +110,9 @@ router.get('/pin-required', (req, res) => {
  */
 router.post('/logout', (req, res) => {
   try {
-    res.clearCookie('DUMBDROP_PIN', { path: '/' });
+    revokeSession(req.cookies?.[SESSION_COOKIE]);
+    res.clearCookie(SESSION_COOKIE, { path: '/' });
+    res.clearCookie(LEGACY_PIN_COOKIE, { path: '/' });
     logger.info(`Logout successful for IP: ${getClientIp(req)}`);
     res.json({ success: true });
   } catch (err) {

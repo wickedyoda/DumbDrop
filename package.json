@@ -1,6 +1,6 @@
 {
   "name": "dumbdrop",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
@@ -8,7 +8,7 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
-    "test": "node --test",
+    "test": "node --test --test-concurrency=1",
     "predev": "node -e \"const v=process.versions.node.split('.');if(v[0]<20) {console.error('Node.js >=20.0.0 required');process.exit(1)}\""
   },
   "keywords": [],

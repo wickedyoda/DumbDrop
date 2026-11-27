@@ -5,51 +5,35 @@
  */
 
 const { safeCompare } = require('../utils/security');
+const { getSecurityIdentity } = require('../utils/ipExtractor');
+const {
+  SESSION_COOKIE,
+  LEGACY_PIN_COOKIE,
+  SESSION_TTL_MS,
+  issueSession,
+  isValidSession,
+} = require('../utils/authSessions');
 const logger = require('../utils/logger');
 const PORT = process.env.PORT || 3000;
 const NODE_ENV = process.env.NODE_ENV || 'production';
 const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
 
-// const { config } = require('../config');
 /**
- * Security headers middleware
- * DEPRECATED: Use helmet middleware instead for security headers
+ * Security header configuration for helmet.
+ *
+ * CSP is now enforced. Everything the UI loads is same-origin (styles.css,
+ * /toastify/*, assets/*, manifest.json) except inline handlers/`<script>`
+ * blocks in the shipped HTML, so script/style need 'unsafe-inline'; there is
+ * no remote script or style source in this app. `upgrade-insecure-requests` is
+ * deliberately NOT sent because the app is routinely served over plain http on
+ * a LAN, where that directive would break every request.
+ *
+ * HSTS is enabled only when BASE_URL is https, and without includeSubDomains:
+ * a wildcard parent (e.g. *.example.com) may still host http-only services.
  */
-// function securityHeaders(req, res, next) {
-//   // Content Security Policy
-//   let csp =
-//     "default-src 'self'; " +
-//     "connect-src 'self'; " +
-//     "style-src 'self' 'unsafe-inline' cdn.jsdelivr.net; " +
-//     "script-src 'self' 'unsafe-inline' cdn.jsdelivr.net; " +
-//     "img-src 'self' data: blob:;";
-
-//   // If allowedIframeOrigins is set, allow those origins to embed via iframe
-//   if (config.allowedIframeOrigins && config.allowedIframeOrigins.length > 0) {
-//     // Remove X-Frame-Options header (do not set it)
-//     // Add frame-ancestors directive to CSP
-//     const frameAncestors = ["'self'", ...config.allowedIframeOrigins].join(' ');
-//     csp += ` frame-ancestors ${frameAncestors};`;
-//   } else {
-//     // Default: only allow same origin if not configured
-//     res.setHeader('X-Frame-Options', 'SAMEORIGIN');
-//   }
-
-//   res.setHeader('Content-Security-Policy', csp);
-//   res.setHeader('X-Content-Type-Options', 'nosniff');
-//   res.setHeader('X-XSS-Protection', '1; mode=block');
-
-//   // Strict Transport Security (when in production)
-//   if (process.env.NODE_ENV === 'production') {
-//     res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
-//   }
-
-//   next();
-// }
-
 function getHelmetConfig() {
-  // const isSecure = BASE_URL.startsWith('https://');
-  
+  const isSecure = BASE_URL.startsWith('https://');
+
   return {
     noSniff: true, // Prevent MIME type sniffing
     frameguard: { action: 'deny' }, // Prevent clickjacking
@@ -58,10 +42,26 @@ function getHelmetConfig() {
     crossOriginResourcePolicy: { policy: 'cross-origin' }, // Allow cross-origin for local network
     referrerPolicy: { policy: 'no-referrer-when-downgrade' }, // Set referrer policy
     ieNoOpen: true, // Prevent IE from executing downloads
-    // hsts: isSecure ? { maxAge: 31536000, includeSubDomains: true } : false, // Only enforce HTTPS if using HTTPS
-    // Disabled Helmet middlewares:
-    hsts: false,
-    contentSecurityPolicy: false, // Disable CSP for now
+    // includeSubDomains is explicitly off: a parent domain often hosts
+    // http-only services, and HSTS there would break them.
+    hsts: isSecure ? { maxAge: 15552000 /* 180 days */, includeSubDomains: false } : false,
+    contentSecurityPolicy: {
+      useDefaults: false,
+      directives: {
+        defaultSrc: ["'self'"],
+        baseUri: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-inline'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", 'data:', 'blob:'],
+        connectSrc: ["'self'", 'data:', 'blob:'],
+        fontSrc: ["'self'", 'data:'],
+        mediaSrc: ["'self'", 'blob:'],
+        manifestSrc: ["'self'"],
+        objectSrc: ["'none'"],
+        frameAncestors: ["'self'"],
+        formAction: ["'self'"],
+      },
+    },
     dnsPrefetchControl: true, // Disable DNS prefetching
     permittedCrossDomainPolicies: false,
     originAgentCluster: false,
@@ -69,8 +69,23 @@ function getHelmetConfig() {
   };
 }
 
+function buildCookieOptions(req) {
+  return {
+    httpOnly: true, // Always enable HttpOnly
+    secure: req.secure || (BASE_URL.startsWith('https') && NODE_ENV === 'production'),
+    sameSite: 'strict',
+    path: '/',
+    maxAge: SESSION_TTL_MS,
+  };
+}
+
 /**
  * PIN protection middleware
+ *
+ * A browser is authenticated by an opaque session token (see
+ * utils/authSessions); the PIN itself is never stored client-side. API/CLI
+ * clients may still present the PIN directly through the `x-pin` header.
+ *
  * @param {string} PIN - Valid PIN for comparison
  */
 function requirePin(PIN) {
@@ -80,35 +95,27 @@ function requirePin(PIN) {
       return next();
     }
 
-    // Check cookie first
-    const cookiePin = req.cookies?.DUMBDROP_PIN;
-    if (cookiePin && safeCompare(cookiePin, PIN)) {
+    // Session cookie carries an opaque token, not the PIN
+    if (isValidSession(req.cookies?.[SESSION_COOKIE])) {
       return next();
     }
 
-    // Check header as fallback
+    // Header fallback for programmatic clients
     const headerPin = req.headers['x-pin'];
     if (headerPin && safeCompare(headerPin, PIN)) {
-      // Set cookie for subsequent requests with enhanced security
-      const cookieOptions = {
-        httpOnly: true, // Always enable HttpOnly
-        secure: req.secure || (BASE_URL.startsWith('https') && NODE_ENV === 'production'),
-        sameSite: 'strict',
-        path: '/',
-        maxAge: 24 * 60 * 60 * 1000 // 24 hour expiry
-      };
-      
-      res.cookie('DUMBDROP_PIN', headerPin, cookieOptions);
+      res.cookie(SESSION_COOKIE, issueSession(), buildCookieOptions(req));
+      // Old releases put the raw PIN in this cookie; make sure it is gone
+      res.clearCookie(LEGACY_PIN_COOKIE, { path: '/' });
       return next();
     }
 
-    logger.warn(`Unauthorized access attempt from IP: ${req.ip}`);
+    logger.warn(`Unauthorized access attempt from IP: ${getSecurityIdentity(req)}`);
     res.status(401).json({ error: 'Unauthorized' });
   };
 }
 
 module.exports = {
-  // securityHeaders, // Deprecated, use helmet instead
   getHelmetConfig,
-  requirePin
-}; 
+  requirePin,
+  buildCookieOptions,
+};

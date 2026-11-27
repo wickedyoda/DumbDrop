@@ -53,6 +53,40 @@ function getClientIp(req) {
 }
 
 /**
+ * Identity used for security decisions (rate limits, PIN lockouts).
+ * `trustSettings` optionally overrides {trustProxy, trustedProxyIps}; the
+ * exported config is frozen, so tests need that seam.
+ *
+ * Unlike getClientIp(), this NEVER lets a request header pick the identity
+ * unless the immediate proxy is explicitly whitelisted in TRUSTED_PROXY_IPS.
+ * With `TRUST_PROXY=true` but no whitelist, a caller could otherwise send a
+ * fresh X-Forwarded-For value on every attempt and sail past both the PIN
+ * lockout bucket and the upload limiters (the exact bypass this closes).
+ *
+ * @param {object} req - Express request object
+ * @returns {string} stable client identity
+ */
+function getSecurityIdentity(req, trustSettings) {
+  const socketIp = normalizeIp(
+    req.socket?.remoteAddress || req.connection?.remoteAddress || 'unknown'
+  );
+
+  const trustProxy = trustSettings && 'trustProxy' in trustSettings
+    ? trustSettings.trustProxy
+    : config.trustProxy;
+  const trustedProxyIps = trustSettings && 'trustedProxyIps' in trustSettings
+    ? trustSettings.trustedProxyIps
+    : config.trustedProxyIps;
+
+  const hasWhitelist = Array.isArray(trustedProxyIps) && trustedProxyIps.length > 0;
+  if (trustProxy && hasWhitelist && validateProxyChain(socketIp, trustedProxyIps)) {
+    return normalizeIp(req.ip || socketIp);
+  }
+
+  return socketIp;
+}
+
+/**
  * Validate that the immediate proxy is in the trusted proxy list.
  * 
  * @param {string} proxyIp - IP address of the immediate proxy
@@ -93,6 +127,7 @@ function normalizeIp(ip) {
 
 module.exports = {
   getClientIp,
+  getSecurityIdentity,
   validateProxyChain,
   normalizeIp
 };

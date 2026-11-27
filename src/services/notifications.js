@@ -18,7 +18,13 @@ const logger = require('../utils/logger');
 async function sendNotification(filename, fileSize, config) {
     const { appriseUrl, appriseMessage, appriseSizeUnit, uploadDir } = config;
 
-    console.debug("NOTIFICATIONS CONFIG:", filename, fileSize, config);
+    // Never dump the config object here: it contains the PIN and the Apprise
+    // URL, which embeds credentials for the notification service.
+    logger.debug(
+        `Notification requested for "${filename}" (${fileSize} bytes), ` +
+        `apprise ${appriseUrl ? 'configured' : 'not configured'}`
+    );
+
     if (!appriseUrl) {
         return;
     }
