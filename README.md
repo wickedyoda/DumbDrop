@@ -133,7 +133,11 @@ For local development setup, troubleshooting, and advanced usage, see the dedica
 | LOG_TO_FILE                                              | Enable/disable file-based logging (`false` disables file output)                                                                      | true                                                          | No       |
 | ACCESS_LOG_ENABLED                                       | Enable/disable request access logging to `access-*.log`                                                                               | true                                                          | No       |
 | TRUST_PROXY                                              | Trust proxy headers (X-Forwarded-For) - only enable if behind a reverse proxy                                                         | false                                                         | No       |
-| TRUSTED_PROXY_IPS                                        | Comma-separated list of trusted proxy IPs (optional, requires TRUST_PROXY=true)                                                       | None                                                          | No       |
+| TRUSTED_PROXY_IPS                                        | Comma-separated list of trusted proxy IPs (optional, requires TRUST_PROXY=true). Without this list, `X-Forwarded-For` is ignored for rate limits and PIN lockouts | None                                                          | No       |
+| UPLOAD_INIT_RATE_LIMIT                                     | New upload jobs (per file) allowed per client per minute                                                                              | 30                                                            | No       |
+| UPLOAD_BATCH_INIT_RATE_LIMIT                               | Files per minute allowed within a batch (`x-batch-id`) the server has already seen from that client                                   | 600                                                           | No       |
+| UPLOAD_CHUNK_RATE_LIMIT                                    | Upload chunk requests allowed per client per minute                                                                                    | 600                                                           | No       |
+| DOWNLOAD_RATE_LIMIT                                        | File downloads allowed per client per minute                                                                                            | 60                                                            | No       |
 | DISABLE_BATCH_CLEANUP                                    | Disable batch-session cleanup scheduler (testing/internal)                                                                            | false                                                         | No       |
 | DISABLE_SECURITY_CLEANUP                                 | Disable security cleanup scheduler (testing/internal)                                                                                 | false                                                         | No       |
 | FAILED_UPLOAD_RETENTION_MINUTES                          | Minutes to retain failed upload `.partial` files before cleanup                                                                        | 60                                                            | No       |
@@ -338,12 +342,19 @@ Both {size} and {storage} use the same formatting rules based on APPRISE_SIZE_UN
 - Variable-length PIN support (4-10 digits)
 - Constant-time PIN comparison
 - Input sanitization
-- Rate limiting with IP-based tracking
-- Protection against IP spoofing attacks
+- Rate limiting with client-identity-based tracking; a request header can no longer opt a client out of it
+- Protection against IP spoofing attacks: rate-limit and PIN-lockout buckets are keyed to the
+  socket address unless the immediate proxy is listed in `TRUSTED_PROXY_IPS`
 - Configurable proxy trust for reverse proxy deployments
 - File extension filtering
-- No client-side PIN storage
-- Secure file handling
+- No client-side PIN storage: after `verify-pin` the browser holds an opaque, in-memory-validated
+  session token (`DUMBDROP_SESSION`), never the PIN; `x-pin` remains available for API clients
+- Content-Security-Policy enforced (same-origin assets plus `'unsafe-inline'` for the shipped
+  inline handlers); HSTS sent when `BASE_URL` is `https://`
+- Secure file handling: `DELETE /api/files/` cannot remove the storage root or the internal
+  `.metadata` tree, only named files and folders inside it
+- Notification logging is redacted - the PIN and the Apprise URL are never written to logs
+- The production container runs as the unprivileged `node` user (uid 1000)
 
 ### Security Best Practices
 
@@ -352,6 +363,9 @@ Both {size} and {storage} use the same formatting rules based on APPRISE_SIZE_UN
 3. **HTTPS**: Use HTTPS in production (handled by your reverse proxy)
 4. **File Extensions**: Restrict allowed file types using `ALLOWED_EXTENSIONS` if possible
 5. **Regular Updates**: Keep DumbDrop and its dependencies up to date
+6. **Container permissions**: the production image runs as uid 1000, so bind-mounted upload and
+   log directories on the host must be writable by that uid (`chown -R 1000:1000 <dir>`),
+   otherwise uploads fail with `EACCES`
 
 ## Technical Details
 

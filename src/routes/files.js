@@ -250,12 +250,38 @@ function countFiles(items) {
 
 /**
  * Delete file or directory
+ *
+ * Guards that matter here: an empty wildcard segment resolves to the upload
+ * root itself, and isPathWithinUploadDir() accepts the root ("within" is
+ * inclusive). Without these checks `DELETE /api/files/` recursively removed
+ * the entire storage tree - a single unauthenticated-looking request when no
+ * PIN is configured, which is the shape this service ships in by default.
  */
 router.delete('/*', async (req, res) => {
   // Get the file/directory path from the wildcard parameter
-  const itemPath = path.join(config.uploadDir, req.params[0]);
-  
+  const relativePath = String(req.params[0] || '').replace(/^\/+/, '');
+  const itemPath = path.join(config.uploadDir, relativePath);
+  const uploadRoot = path.resolve(config.uploadDir);
+
   try {
+    // A delete must name something inside the storage root, never the root
+    if (!relativePath) {
+      logger.warn('Rejected delete of the upload root (empty path)');
+      return res.status(400).json({ error: 'A file or directory path is required' });
+    }
+
+    if (path.resolve(itemPath) === uploadRoot) {
+      logger.warn(`Rejected attempt to delete the upload root: ${relativePath}`);
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    // Internal state (upload metadata) is not user-deletable
+    const firstSegment = relativePath.split('/')[0];
+    if (firstSegment === '.metadata' || firstSegment.startsWith('.')) {
+      logger.warn(`Rejected delete of internal path: ${relativePath}`);
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
     // Ensure the path is within the upload directory (security check)
     // Use requireExists=true since we're deleting an existing file
     if (!isPathWithinUploadDir(itemPath, config.uploadDir, true)) {
