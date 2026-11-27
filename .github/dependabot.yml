@@ -1,0 +1,45 @@
+version: 2
+updates:
+  # Application dependencies (express, multer, helmet, …) — this is what left
+  # proxy-addr 2.0.7 (CVE-2026-90711) and seven multer advisories unpatched.
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "America/Chicago"
+    open-pull-requests-limit: 10
+    allow:
+      - dependency-type: "production"
+      - dependency-type: "development"
+    commit-message:
+      prefix: "chore(deps)"
+    labels:
+      - "dependencies"
+      - "security"
+
+  # Base image (node:XX-alpine) — the runtime CVEs live here as often as in
+  # package.json, because npm and Node bundle their own dependency trees.
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "America/Chicago"
+    labels:
+      - "dependencies"
+      - "security"
+
+  # CI actions — tag-pinned actions are a mutable supply-chain input.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "America/Chicago"
+    labels:
+      - "dependencies"
+      - "ci"
